@@ -1,0 +1,55 @@
+#----------------------------------------------------------------------
+#Author    : Marcin Jędorowicz
+#Data      : 2022-03-16
+#Version   : 2.0.0
+#CopyRight : Marcin Jędorowicz
+#----------------------------------------------------------------------
+
+#Nawiązywanie połączenia z serwerem WSUS
+[reflection.assembly]::LoadWithPartialName("Microsoft.UpdateServices.Administration")| out-null 
+$wsus = [Microsoft.UpdateServices.Administration.AdminProxy]::GetUpdateServer(); 
+
+# funkcja przypisuje komputery do konkretnej grupy
+function AssignUnassign($WSUSServer,[string]$OperatingSystem,[string[]]$GroupAssign,[string]$LogFile='C:\Windows\Logs\WSUSAssignUnnasign.txt'){
+    $counter=0
+    $WSUSGroup=@()
+
+    $WSUSGroupUnssigned=($WSUSServer.GetComputerTargetGroups() |where{$_.name -like "Unassign*"}).id
+    
+    foreach($GroupAssignName in $GroupAssign){
+        $WSUSGroup+=($WSUSServer.GetComputerTargetGroups() |where{$_.name -like ("*"+$groupAssignName+"*")}).id
+    }
+    $Computers = ($WSUSServer.GetComputerTargetGroups()|Where{$_.name -like "Unassign*"}).getcomputertargets()|select FullDomainName,OSDescription
+    
+    (get-date).Tostring() + ‘ <=====----- START script -----=====>‘| Out-file $LogFile -append 
+    ForEach($computer in $computers){
+        $Error.Clear()
+        try{
+            if($computer.OSDescription -like ("*"+$OperatingSystem+"*")){
+                Foreach($idWSUSGroup in $WSUSGroup){
+                    $WSUSServer.GetComputerTargetGroup($idWSUSGroup).AddComputerTarget($WSUSServer.GetComputerTargetByName($computer.FullDomainName))
+                }
+                $counter+=1
+            }
+        }
+        catch{
+            (get-date).Tostring() + ‘ <=====----- START ERROR Information -----=====>‘| Out-file $LogFile -append 
+            $ErrorMessage = $_.Exception.Message
+            $FailedItem = $_.Exception.ItemName
+            (get-date).Tostring() + ‘ ‘ + $errorMessage | Out-file $LogFile -append 
+            (get-date).Tostring() + ‘ ‘ + $FailedItem | Out-file $LogFile -append 
+            (get-date).Tostring() + ‘ <=====----- END ERROR Information -----=====>‘| Out-file $LogFile -append 
+        }
+        Finally{
+	        if($error.count){
+                (get-date).Tostring() + ‘ Dodano komputer '+$computer.FullDomainName+' do grupy '+$GroupAssign| Out-file $LogFile -append
+            }
+        }
+      }
+    (get-date).Tostring() + ‘ <=====----- STOP script -----=====>‘| Out-file $LogFile -append 
+
+return "Dodano $counter komputerów z systemem operacyjnym $OperatingSystem, do grupy $GroupAssign"
+}
+
+AssignUnassign $wsus "Windows 10" "WinClient_Win10","Win10_22H2" "C:\WSUSScripts\Log\AssignUnassign.txt"
+AssignUnassign $wsus "windows 7" "WinClient" "C:\WSUSScripts\Log\AssignUnassign.txt"
