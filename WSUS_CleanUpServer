@@ -1,0 +1,51 @@
+#----------------------------------------------------------------------
+#Author    : Marcin Jędorowicz
+#Data      : 2018-09-14
+#Version   : 1.0.0
+#CopyRight : Marcin Jędorowicz
+#----------------------------------------------------------------------
+
+#Nawiązywanie połączenia z serwerem WSUS
+[reflection.assembly]::LoadWithPartialName("Microsoft.UpdateServices.Administration")| out-null 
+$wsus = [Microsoft.UpdateServices.Administration.AdminProxy]::GetUpdateServer(); 
+
+#funkcja czyści WSUS ze zbędnych aktualizacji i plików
+function CleanUpWSUSServer($WSUSServer,[string]$LogFile='C:\Windows\Logs\WSUSCleanUpServer.txt'){
+$Error.Clear()
+(get-date).Tostring() + ‘ <=====----- START script -----=====>‘| Out-file $LogFile -append 
+try{
+    $cleanupScope = new-object Microsoft.UpdateServices.Administration.CleanupScope; 
+    $cleanupScope.DeclineSupersededUpdates = $true        #kasowanie zast¹pionych aktualizacji
+    $cleanupScope.DeclineExpiredUpdates         = $true #kasowanie wygas³ych aktualizacji
+    $cleanupScope.CleanupObsoleteUpdates     = $true #przestarza³e aktualizacje
+    $cleanupScope.CompressUpdates                  = $true 
+    $cleanupScope.CleanupObsoleteComputers = $true #komputery przestarza³e
+    $cleanupScope.CleanupUnneededContentFiles = $true #niepotrzebne pliki
+    $cleanupManager = $WSUSServer.GetCleanupManager(); 
+    $a=$cleanupManager.PerformCleanup($cleanupScope);
+    $cleanupManager.ProgressHandler
+}
+Catch{
+    (get-date).Tostring() + ‘ <=====----- START ERROR Information -----=====>‘| Out-file $LogFile -append 
+    $ErrorMessage = $_.Exception.Message
+    $FailedItem = $_.Exception.ItemName
+    (get-date).Tostring() + ‘ ‘ + $errorMessage | Out-file $LogFile -append 
+    (get-date).Tostring() + ‘ ‘ + $FailedItem | Out-file $LogFile -append 
+    (get-date).Tostring() + ‘ <=====----- END ERROR Information -----=====>‘| Out-file $LogFile -append 
+ 
+}
+Finally{
+(get-date).Tostring() + ‘ Zakończono czyszczenie serwera'+$a| Out-file $LogFile -append
+(get-date).Tostring() + ' Aktualizacje zastąpione innymi aktualizacjami: '+$a.SupersededUpdatesDeclined+' sztuk.'| Out-file $LogFile -append
+(get-date).Tostring() + ' Aktualizacje przeterminowane: '+$a.ExpiredUpdatesDeclined+' sztuk.'| Out-file $LogFile -append
+(get-date).Tostring() + ' Aktualizacje przestarzałe: '+$a.ObsoleteUpdatesDeleted+' sztuk.'| Out-file $LogFile -append
+(get-date).Tostring() + ' Aktualizacje poprawione: '+$a.UpdatesCompressed+' sztuk.'| Out-file $LogFile -append
+(get-date).Tostring() + ' Liczba komputerów przestażałych: '+$a.ObsoleteComputersDeleted+' sztuk.'| Out-file $LogFile -append
+$diskSpace=$a.DiskSpaceFreed/1048576
+(get-date).Tostring() + ' Odzyskana przestrzeń: '+$diskSpace+' MB danych.'| Out-file $LogFile -append
+}
+(get-date).Tostring() + ‘ <=====----- STOP script -----=====>‘| Out-file $LogFile -append 
+return $a
+}
+
+CleanUpWSUSServer $wsus "C:\WSUSScripts\Log\CleanUpServer.txt"
