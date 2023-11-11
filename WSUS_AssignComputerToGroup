@@ -1,0 +1,71 @@
+#-----------------------------------------------------------------
+#Author    : MJBCT / Marcin Jędorowicz
+#Data      : 2018-10-17
+#Version   : 1.0.0
+#CopyRight : Marcin Jędorowicz
+#-----------------------------------------------------------------
+
+#Nawiązywanie połączenia z serwerem WSUS
+[reflection.assembly]::LoadWithPartialName("Microsoft.UpdateServices.Administration")| out-null 
+$wsus = [Microsoft.UpdateServices.Administration.AdminProxy]::GetUpdateServer(); 
+
+# funkcja przypisuje komputery do konkretnej grupy
+Function AssignToGroup($WSUSServer,[string]$ADGroup,[string]$WSUSGroupAssign,[string]$LogFile='C:\Windows\Logs\AssignToGroup.txt'){
+
+#nazwa domeny
+    $domain=get-addomain|select -expand Forest
+
+#lista komputerów
+    $ComputerList = Get-ADGroupMember -Identity $ADGroup |select -expand name
+
+#ID grupy we WSUS do której będziemy przypisywac komputery
+    $WSUSGroupID=($WSUSServer.GetComputerTargetGroups() |where{$_.name -like ("*"+$WSUSgroupAssign+"*")}).id
+
+    (get-date).Tostring() + ‘ <=====----- START script -----=====>‘| Out-file $LogFile -append 
+    $counter=0
+    foreach ($computer in $computerlist){
+    #czyszczenie informacji o błędach
+        $Error.Clear()
+        #weryfikacja czy komputer istnieje
+        Try{
+            $AddedComputer=$WSUSServer.GetComputerTargetByName($computer+"."+$domain)
+        }
+        Catch{
+            (get-date).Tostring() + ‘ <=====----- START ERROR Information -----=====>‘| Out-file $LogFile -append 
+            $ErrorMessage = $_.Exception.Message
+            $FailedItem = $_.Exception.ItemName
+            $ErrorMessage
+            (get-date).Tostring() + ‘ ‘ + $computer+"."+$domain +" nie istnieje" | Out-file $LogFile -append 
+            (get-date).Tostring() + ‘ ‘ + $errorMessage | Out-file $LogFile -append 
+            (get-date).Tostring() + ‘ ‘ + $FailedItem | Out-file $LogFile -append 
+            (get-date).Tostring() + ‘ <=====----- END ERROR Information -----=====>‘| Out-file $LogFile -append 
+        }
+        #jeśli komputer występuje idź dalej
+        if($error.Count -eq 0){
+            #dodaj komputer do danej grupy we WSUS-ie
+            Try
+            {
+                #przypisanie do grupy o okreslonym ID komputera
+                #(określenie grupy).DodajKomputer(podanie nazwy dodawanego komputera)
+                ($WSUSServer.GetComputerTargetGroup($WSUSGroupID)).AddComputerTarget($AddedComputer)
+                (get-date).Tostring() + ‘ Dodano komputer ‘ + $computer+"."+$domain | Out-file $LogFile -append 
+                $counter+=1;
+            }
+            Catch
+            {
+                (get-date).Tostring() + ‘ <=====----- START ERROR Information -----=====>‘| Out-file $LogFile -append 
+                $ErrorMessage = $_.Exception.Message
+                $FailedItem = $_.Exception.ItemName
+                $ErrorMessage
+                (get-date).Tostring() + ‘ ‘ + $errorMessage | Out-file $LogFile -append 
+                (get-date).Tostring() + ‘ ‘ + $FailedItem | Out-file $LogFile -append 
+                (get-date).Tostring() + ‘ <=====----- END ERROR Information -----=====>‘| Out-file $LogFile -append 
+            }
+        }
+    }
+    (get-date).Tostring() + ‘ <=====----- STOP script -----=====>‘| Out-file $LogFile -append 
+return "Dodano " + $counter +" komputerów do grpupy $WSUSGroupAssign"
+}
+
+AssignToGroup $wsus "00SG-WSUS-KlientGrupaTestowa" "WinClient_GrupaTestowa" "C:\WSUSScripts\Log\AssignToGroup.txt"
+AssignToGroup $wsus "00SG-WSUS-DI-TestGroup" "WinClient_DI_Test" "C:\WSUSScripts\Log\AssignToGroup.txt"
