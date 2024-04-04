@@ -3,8 +3,7 @@ When we have issue with WinRM and see notification
 "Configuration refresh failed with the following error:The WS-Management service cannot process the request.
 The computed response packet size (514541) exceeds the maximum envelope size that is allowed (512000)."
 
-
-On the begining check MaxEnvelopeSizekb
+On the beginning check MaxEnvelopeSizekb
 on commandline: winrm get winrm/config
 result:
 Config
@@ -68,4 +67,4 @@ Config
     MaxBatchItems = 32000
     MaxProviderRequests = 4294967295
 
-This command must be used on All serwer witch be comunicated
+This command must be used on All server witch be communicated
