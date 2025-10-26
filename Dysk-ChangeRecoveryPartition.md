@@ -5,6 +5,7 @@ Disk Recovery - rozszerzenie dysku C
 
 Kroki do wykonania
 1) Wyłączenie Windows Recovery Partition
+
 reagentc /disable
 
 2) Przejście do działań w ramach DiskPart
