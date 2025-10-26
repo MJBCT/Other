@@ -1,6 +1,8 @@
 Disk Recovery - rozszerzenie dysku C
 Źródło=https://thedxt.ca/2023/06/moving-windows-recovery-partition-correctly/ 
 
+[Nagranie z modyfikacji dysku Recovery] (https://www.youtube.com/watch?v=Ra6vUOsLNQU)
+
 Kroki do wykonania
 1) Wyłączenie Windows Recovery Partition
 reagentc /disable
