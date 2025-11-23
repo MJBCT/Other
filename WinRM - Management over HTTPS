@@ -1,0 +1,46 @@
+Chcąc uruchomić WinRM over HTTPS na serwerze musi byc certyfikat wystawiony dla serwera gdzie CN odpowiada nazwie serwera
+Przy istniejącym certyfikacie uruchamiamy PowerShell jako Administrator i uruchamiamy komendy
+najpiere weryfikacja istniejących Listenerów
+
+winrm e winrm/config/listener
+
+wynik powinien mieć postać 
+Listener
+    Address = *
+    Transport = HTTP
+    Port = 5985
+    Hostname
+    Enabled = true
+    URLPrefix = wsman
+    CertificateThumbprint
+    ListeningOn = <IP serwera> na którym jest nasłuch
+
+tworzymy możliwość korzystania z szyfrowanego połączenia
+winrm quickconfig -transport:https
+następnie weryfikujemy istenery "nasłuchiwacze"
+winrm e winrm/config/listener
+
+Oprucz zwykłego powinien być również widoczny profil z obsługa HTTPS-a
+Listener
+    Address = *
+    Transport = HTTPS
+    Port = 5986
+    Hostname = <nazwa serwera jako FQDN>
+    Enabled = true
+    URLPrefix = wsman
+    CertificateThumbprint = <thumbprint wykorzystywanego certyfikatu>
+    ListeningOn = <IP wykorzystywanych do nasłuchiwania>
+
+Następnie tworzymy regułe w Firewallu umożliwiającą komunikację na porcie 5986.
+W przypadku kluczowych serwerów warto wdrozyć dodatkowe zabezpieczenie związane z ograniczoną liczbą adresów IP z których można zestawic połączenie.
+
+po zweryfikowaniu poprawności działania połączenia szyfrowanego nalezy wyłączyć możliwość połączenia bez szyfrowania
+winrm set winrm/config/Listener?Address=*+Transport=HTTP @{Enabled="false"}
+
+lub jego całkowite wykasowanie
+winrm delete winrm/config/Listener?Address=*+Transport=HTTP
+
+
+
+
+
