@@ -1,0 +1,400 @@
+#-----------------------------------------------------------------
+#Author    : Marcin Jędorowicz
+#Data      : 2026-01-25
+#Version   : 1.0.0
+#CopyRight : Marcin Jędorowicz
+#GitHub    : https://github.com/MJBCT/Other
+#-----------------------------------------------------------------
+
+
+Function Save-EventLog{
+    Param(
+        [Parameter(Mandatory=$true,HelpMessage="Log Name eg: Application")][string] $EventLogName,
+        [Parameter(Mandatory=$true,HelpMessage="Source of log")][string] $EventSource,
+        [Parameter(Mandatory=$true,HelpMessage="ID of Event")][string] $EventID,
+        [Parameter(Mandatory=$true,HelpMessage="Event Type eg: Information | Warning | Error")][string] $EventType,
+        [Parameter(Mandatory=$true,HelpMessage="Event Message")][string] $EventMessage
+    )
+    try{
+        Write-EventLog -LogName $EventLogName -Source $EventSource  -EventId $EventID -EntryType $EventType -Category 0 -Message $EventMessage
+    }
+    catch{
+        $strReturnVerbose=""
+        $arrayLog = "Create new Event"
+        $arrayLog += $_.Exception.Message;
+    
+        $strReturnVerbose += $arrayLog
+        
+        Write-Host "Saving message was end with issue"
+        Write-Host $strReturnVerbose
+        break
+    }
+}
+
+Function Get-CRL_Properties{
+    Param(
+        [Parameter(Mandatory=$true,HelpMessage="CRL file")][object] $CRLFile,
+        [Parameter(HelpMessage="Type of runing script: TRUE only wrtites info on Console, FALSE creating vents")][switch]$Test
+    )
+    try{
+        $CRLProperties=certutil -dump $CRLFile
+
+        $currentDateTime=Get-Date
+    
+        [pscustomobject]@{
+            CertName=""
+            FileName=$CRLFile
+            CAName=$CRLProperties |Select-String "CN="|ForEach-Object {($_ -split 'CN=')[1]}| Select-Object -First 1
+            CreateDate =  [datetime]::ParseExact((($CRLProperties|Select-String "ThisUpdate") -split 'ThisUpdate: ')[1],"dd.MM.yyyy HH:mm",[cultureinfo]::InstalledUICulture)
+            ExpireDate =  [datetime]::ParseExact((($CRLProperties|Select-String "NextUpdate") -split 'NextUpdate: ')[1],"dd.MM.yyyy HH:mm",[cultureinfo]::InstalledUICulture)
+            Thumbprint = (Get-FileHash -Path $CRLFile -Algorithm SHA1).Hash
+            isValid = if($currentDateTime -lt [datetime]::ParseExact((($CRLProperties|Select-String "NextUpdate") -split 'NextUpdate: ')[1],"dd.MM.yyyy HH:mm",[cultureinfo]::InstalledUICulture)){$true}else{$false}
+        }
+
+    }
+    catch{
+        $strReturnVerbose=""
+        $arrayLog = "Getting CRL File Properties"
+        $arrayLog += $_.Exception.Message;
+    
+        $strReturnVerbose += $arrayLog
+        if($Test){
+            Write-Host "Test print on screen EventID " $strEventIDError
+            Write-Host $strReturnVerbose
+        }
+        else{
+            Save-EventLog -EventLogName $strEventLogName -EventSource $strEventSource -EventID $strEventError[0] -EventType $strEventError[1] -EventMessage $strReturnVerbose
+        }
+        break
+    }
+}
+
+Function Get-CRT_Properties{
+    Param(
+        [Parameter(Mandatory=$true,HelpMessage="CRT file")][object] $CRTFile,
+        [Parameter(HelpMessage="Type of runing script: TRUE only wrtites info on Console, FALSE creating vents")][switch]$Test
+    )
+    try{
+        $CRTProperties=New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($CRTFile)
+
+        $currentDateTime=Get-Date
+    
+        [pscustomobject]@{
+            CertName=""
+            FileName=$CRTFile
+            CAName=($CRTProperties.Issuer -split ",")[0] -replace "CN="
+            CreateDate =  $CRTProperties.NotBefore
+            ExpireDate =  $CRTProperties.NotAfter
+            Tuhmbprint = $CRTProperties.Thumbprint
+            isValid = if($currentDateTime -lt $CRTProperties.NotAfter){$true}else{$false}
+         }
+    }
+    catch{
+        $strReturnVerbose=""
+        $arrayLog = "Getting CRT File Properties"
+        $arrayLog += $_.Exception.Message;
+    
+        $strReturnVerbose+=$arrayLog
+        if($Test){
+            Write-Host "Test print on screen EventID " $strEventIDError
+            Write-Host $strReturnVerbose
+        }
+        else{
+            Save-EventLog -EventLogName $strEventLogName -EventSource $strEventSource -EventID $strEventError[0] -EventType $strEventError[1] -EventMessage $strReturnVerbose
+        }
+        break
+    }
+}
+
+Function Get-Cert_Properties{
+    Param(
+        [Parameter(Mandatory=$true,HelpMessage="Certificate")][object] $Certificate,
+        [Parameter(HelpMessage="Type of runing script: TRUE only wrtites info on Console, FALSE creating vents")][switch]$Test
+    )
+    try{
+        $CertProperties=New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($Certificate)
+
+        $currentDateTime=Get-Date
+    
+        [pscustomobject]@{
+            CertName=($CertProperties.Subject -split ",")[0] -replace "CN="
+            FileName=""
+            CAName=($CertProperties.Issuer -split ",")[0] -replace "CN="
+            CreateDate =  $CertProperties.NotBefore
+            ExpireDate =  $CertProperties.NotAfter
+            Tuhmbprint = $CertProperties.Thumbprint
+            isValid = if($currentDateTime -lt $CertProperties.NotAfter){$true}else{$false}
+         }
+    }
+    catch{
+        $strReturnVerbose=""
+        $arrayLog = "Getting Cerfificate Properties"
+        $arrayLog += $_.Exception.Message;
+    
+        $strReturnVerbose+=$arrayLog
+        if($Test){
+            Write-Host "Test print on screen EventID " $strEventIDError
+            Write-Host $strReturnVerbose
+        }
+        else{
+            Save-EventLog -EventLogName $strEventLogName -EventSource $strEventSource -EventID $strEventError[0] -EventType $strEventError[1] -EventMessage $strReturnVerbose
+        }
+        break
+    }
+}
+
+
+[CmdletBinding()]
+#Param(
+#[Parameter(Mandatory=$true, HelpMessage="Folder path for file *.CRT i *.CRL")][string]  $strFolderPath="",  
+#[Parameter(HelpMessage="Threshold warning in Days")] [byte] $WarningThreshold = 30,
+#[Parameter(HelpMessage="Critical warnings ind Days")][byte] $CriticalThreshold = 7
+#[Parameter(HelpMessage="File of Excluded Certificate Thumbprint")]$ExcludedThumbprintFile = ""
+#[Parameter(HelpMessage="Type of runing script: TRUE only wrtites info on Console, FALSE creating vents")][switch]$Test
+#)
+
+$strReturnVerbose = $null
+
+$Test=$false
+#$Test=$true
+
+$strFolderPath = "G:\Repozytorium"
+#$strFolderPath = ""
+$WarningThreshold = 30
+$CriticalThreshold = 7
+$ExcludedThumbprintFile="G:\Skrypty\ExcludedCertificateThumbprint.txt"
+#$ExcludedThumbprintFile=""
+
+#exploring information about Excluded Thumbprint
+if($ExcludedThumbprintFile -eq ""){$ExcludedThumbprint =@()}
+else{
+    if(Test-Path($ExcludedThumbprintFile)){
+        $ExcludedThumbprint = Get-Content $ExcludedThumbprintFile
+    }
+    else{
+        $strErrorStage = "Get list of Excluded Thumbprint failed. Faile not Exists "
+        $strReturnVerbose+=$strErrorStage
+        $strReturnVerbose+=$ExcludedThumbprintFile
+
+        $ExcludedThumbprint =@()
+        if($Test){
+        Write-Host "Test print on screen EventID " $strEvent.Error.ID
+        Write-Host $strReturnVerbose
+            }
+            else{
+                Save-EventLog -EventLogName $strEventLogName -EventSource $strEventSource -EventID $strEvent.Error.id -EventType $strEvent.Error.Desc -EventMessage $strReturnVerbose
+            }
+
+    }
+}
+
+#EventLog Can not be Critical using API
+$strEventLogName = "Application"
+$strEventSource = "CertificateMonitoring"
+
+$StrEvent = @{
+    "OK" = [PSCustomObject]@{
+        ID   = "10000"
+        Desc = "Information"
+    }
+    "Warning" = [PSCustomObject]@{
+        ID   = "10001"
+        Desc = "warning"
+    }
+    "Critical" = [PSCustomObject]@{
+        ID   = "10002"
+        Desc = "Error"
+    }
+    "Expired" = [PSCustomObject]@{
+        ID   = "10003"
+        Desc = "Error"
+    }
+    "Error" = [PSCustomObject]@{
+        ID   = "10004"
+        Desc = "Error"
+    }
+}
+#print OnScrean list of Event id
+if($Test){
+    $StrEvent
+    Write-Host "`n"
+}
+
+$strErrorStage = ""
+
+$arrayCertificates = @()
+
+$arrayLog = @()
+
+#cheking for existing $strEventSource in specific Log. If not Exists ceating them 
+if((Get-WmiObject -Class Win32_NTEventLOgFile |?{$_.FileName -eq $strEventLogName -and $_.Sources -match $strEventSource}).logFilename -ne $strEventLogName){
+    New-EventLog -LogName $strEventLogName -Source $strEventSource
+}
+
+#trying to get file CRL and CRT from repsitory
+if($strFolderPath -ne ""){
+    try{
+        $strErrorStage = "Get File List from Folder"
+        $arrayCertificates += Get-ChildItem -Path $strFolderPath -ErrorAction Stop |where {$_.Extension -like ".crl" -or $_.Extension -like ".crt"}
+    }
+    catch{
+        $arrayLog += $strErrorStage
+        $arrayLog += $_.Exception.Message;
+    
+        $strReturnVerbose+=$arrayLog
+        if($Test){
+            Write-Host "Test print on screen EventID " $strEvent.Error.ID
+            Write-Host $strReturnVerbose
+        }
+        else{
+            Save-EventLog -EventLogName $strEventLogName -EventSource $strEventSource -EventID $strEvent.Error.id -EventType $strEvent.Error.Desc -EventMessage $strReturnVerbose
+        }
+    }
+}
+
+#Exploring information about File CRL or CRT
+#Foreach object in array of File InRepository
+$objResoult=@()
+foreach($itemCertificate in $arrayCertificates)
+{
+$objItem = $null
+    if($itemCertificate.Extension -eq ".crl")
+    {
+        try{
+            $strErrorStage = "Get CRL File properties"
+            $objItem = Get-CRL_Properties -CRLFile $itemCertificate.FullName
+            
+            if ($objItem.Tuhmbprint -notin $ExcludedThumbprint -and (($objItem.ExpireDate-$objItem.CreateDate).totalDays -gt 3)){
+                $objResoult+= $objItem
+            }
+        }
+        catch
+        {
+            $arrayLog =$strErrorStage
+            $arrayLog +=$itemCertificate.Fullname
+            $arrayLog +=$_.Exception.Message
+
+            $strReturnVerbose+=$arrayLog
+
+            if($Testg){
+                Write-Host "Test print on screen EventID " $strEvent.Error.ID
+                Write-Host $strReturnVerbose
+            }
+            else{
+                Save-EventLog -EventLogName $strEventLogName -EventSource $strEventSource -EventID $strEvent.Error.ID -EventType $strEvent.Error.Desc -EventMessage $strReturnVerbose
+            }
+        }
+    }
+    elseif($itemCertificate.Extension -eq ".crt")
+    {
+        try{
+            $strErrorStage = "Get CRT File properties"
+
+            $objItem=Get-CRT_Properties -CRTFile $itemCertificate.FullName
+
+            if ($objItem.Tuhmbprint -notin $ExcludedThumbprint){
+                $objResoult+= $objItem
+            }
+        }
+        catch
+        {
+            $arrayLog +=$strErrorStage
+            $arrayLog +=$itemCertificate.Fullname
+            $arrayLog +=$_.Exception.Message
+
+            $strReturnVerbose+=$arrayLog
+
+            if($Testg){
+                Write-Host "Test print on screen EventID " $strEvent.error.ID
+                Write-Host $strReturnVerbose
+            }
+            else{
+                Save-EventLog -EventLogName $strEventLogName -EventSource $strEventSource -EventID $strEvent.Error.ID -EventType $strEvent.Error.Desc -EventMessage $strReturnVerbose
+            }
+        }
+    }
+}
+
+#Exploring Windows storage of certificate Cert:\LocalMachine\My
+$arrayCertificates = Get-ChildItem Cert:\LocalMachine\My 
+Foreach($itemCertificate in $arrayCertificates){
+    $objItem = $null
+    try{
+        $strErrorStage = "Get Certificate properties"
+        $objItem = Get-Cert_Properties -certificate $itemCertificate
+            
+        if ($objItem.Tuhmbprint -notin $ExcludedThumbprint -and (($objItem.ExpireDate-$objItem.CreateDate).totalDays -gt 3)){
+            $objResoult+= $objItem
+        }
+    }
+    catch{
+        $arrayLog =$strErrorStage
+        $arrayLog +=$itemCertificate.Fullname
+        $arrayLog +=$_.Exception.Message
+
+        $strReturnVerbose+=$arrayLog
+
+        if($Testg){
+            Write-Host "Test print on screen EventID " $strEvent.Error.ID
+            Write-Host $strReturnVerbose
+        }
+        else{
+            Save-EventLog -EventLogName $strEventLogName -EventSource $strEventSource -EventID $strEvent.Error.ID -EventType $strEvent.Error.Desc -EventMessage $strReturnVerbose
+        }
+    }
+}
+
+foreach($itemObjResult in $objResoult){
+$currentDateTime=Get-Date
+
+    if($itemObjResult.isValid){
+        if ($currentDateTime.AddDays($CriticalThreshold) -gt $itemObjResult.ExpireDate){
+            $strReturnVerbose= "Certificate will expire after " + ($itemObjResult.ExpireDate - $currentDateTime).Days +"`n"
+            $strReturnVerbose+=$itemObjResult|Out-String
+
+            if($Test){
+                Write-Host "Test print on screen EventID " $strEvent.Critical.ID
+                Write-Host $strReturnVerbose
+            }
+            else{
+                Save-EventLog -EventLogName $strEventLogName -EventSource $strEventSource -EventID $strEvent.Critical.ID -EventType $strEvent.Critical.Desc -EventMessage $strReturnVerbose
+            }
+        }
+        elseif ($currentDateTime.AddDays($WarningThreshold) -gt $itemObjResult.ExpireDate){
+            $strReturnVerbose= "Certificate will expire after " + ($itemObjResult.ExpireDate - $currentDateTime).Days +"`n"
+            $strReturnVerbose+=$itemObjResult|Out-String
+
+            if($Test){
+                Write-Host "Test print on screen " $strEvent.Warning.ID
+                Write-Host $strReturnVerbose
+            }
+            else{
+                Save-EventLog -EventLogName $strEventLogName -EventSource $strEventSource -EventID $strEvent.Warning.ID -EventType $strEvent.Warning.Desc -EventMessage $strReturnVerbose
+            }
+        }
+        else{
+            $strReturnVerbose= "Certificate is Valid" +"`n"
+            $strReturnVerbose+=$itemObjResult|Out-String
+
+            if($Test){
+                Write-Host "Test print on screen EventID " $strEvent.OK.ID
+                Write-Host $strReturnVerbose
+            }
+            else{
+                Save-EventLog -EventLogName $strEventLogName -EventSource $strEventSource -EventID $strEvent.OK.ID -EventType $strEvent.OK.Desc -EventMessage $strReturnVerbose
+            }
+        }
+    }
+    else{
+            $strReturnVerbose= "Certificate was expired "+"`n"
+            $strReturnVerbose+=$itemObjResult|Out-String
+
+            if($Test){
+                Write-Host "Test print on screen EventID " $strEvent.Expired.ID
+                Write-Host $strReturnVerbose
+            }
+            else{
+                Save-EventLog -EventLogName $strEventLogName -EventSource $strEventSource -EventID $strEvent.Expired.ID -EventType $strEvent.Expired.Desc -EventMessage $strReturnVerbose
+            }
+    }
+}
