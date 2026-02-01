@@ -6,6 +6,15 @@
 #GitHub    : https://github.com/MJBCT/Other
 #-----------------------------------------------------------------
 
+[CmdletBinding()]
+Param(
+[Parameter(HelpMessage="Folder path for file *.CRT i *.CRL")][string]$strFolderPath = "",  
+[Parameter(HelpMessage="Threshold warning in Days")] [int] $WarningThreshold = 30,
+[Parameter(HelpMessage="Critical warnings ind Days")][byte] $CriticalThreshold = 7,
+[Parameter(HelpMessage="File of Excluded Certificate Thumbprint")]$ExcludedThumbprintFile = "",
+[Parameter(HelpMessage="Type of runing script: TRUE runing for not exired certificate")][switch] $OnlyNotExpiredCertificate,
+[Parameter(HelpMessage="Type of runing script: TRUE only wrtites info on Console, FALSE creating vents")][switch] $Test
+)
 
 Function Save-EventLog{
     Param(
@@ -144,26 +153,7 @@ Function Get-Cert_Properties{
 }
 
 
-[CmdletBinding()]
-#Param(
-#[Parameter(Mandatory=$true, HelpMessage="Folder path for file *.CRT i *.CRL")][string]  $strFolderPath="",  
-#[Parameter(HelpMessage="Threshold warning in Days")] [byte] $WarningThreshold = 30,
-#[Parameter(HelpMessage="Critical warnings ind Days")][byte] $CriticalThreshold = 7
-#[Parameter(HelpMessage="File of Excluded Certificate Thumbprint")]$ExcludedThumbprintFile = ""
-#[Parameter(HelpMessage="Type of runing script: TRUE only wrtites info on Console, FALSE creating vents")][switch]$Test
-#)
-
 $strReturnVerbose = $null
-
-$Test=$false
-#$Test=$true
-
-$strFolderPath = "G:\Repozytorium"
-#$strFolderPath = ""
-$WarningThreshold = 30
-$CriticalThreshold = 7
-$ExcludedThumbprintFile="G:\Skrypty\ExcludedCertificateThumbprint.txt"
-#$ExcludedThumbprintFile=""
 
 #exploring information about Excluded Thumbprint
 if($ExcludedThumbprintFile -eq ""){$ExcludedThumbprint =@()}
@@ -386,6 +376,7 @@ $currentDateTime=Get-Date
         }
     }
     else{
+        if(!$OnlyNotExpiredCertificate){
             $strReturnVerbose= "Certificate was expired "+"`n"
             $strReturnVerbose+=$itemObjResult|Out-String
 
@@ -396,5 +387,7 @@ $currentDateTime=Get-Date
             else{
                 Save-EventLog -EventLogName $strEventLogName -EventSource $strEventSource -EventID $strEvent.Expired.ID -EventType $strEvent.Expired.Desc -EventMessage $strReturnVerbose
             }
+        }
     }
 }
+
