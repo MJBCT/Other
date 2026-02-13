@@ -11,9 +11,10 @@ reagentc /disable
 2) Przejście do działań w ramach DiskPart
    
 diskpart
+
 	2.1)Wylistowanie dysków
    	
-	lisk disk
+	list disk
 	
 	2.2) Wybranie dysku
 	
